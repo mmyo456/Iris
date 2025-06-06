@@ -29,6 +29,8 @@ export interface VelocityAnimationConfig {
 export interface WebGLImageViewerProps {
   src: string
   className?: string
+  width?: number // 可选的预知图片宽度，用于优化加载
+  height?: number // 可选的预知图片高度，用于优化加载
   initialScale?: number
   minScale?: number
   maxScale?: number
@@ -82,6 +84,7 @@ export interface DebugInfo {
     pressure: number // 百分比
     activeLODs: number
     maxConcurrentLODs: number
+    onDemandStrategy?: boolean // 是否使用按需策略
   }
   tiling: {
     enabled: boolean
@@ -90,5 +93,12 @@ export interface DebugInfo {
     cachedTiles?: number
     maxTiles?: number
     loadingTiles?: number
+  }
+  visibleRegion?: {
+    // 当前可视区域信息
+    x: number
+    y: number
+    width: number
+    height: number
   }
 }

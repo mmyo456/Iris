@@ -1,4 +1,11 @@
-import { LOD_LEVELS } from './constants'
+import {
+  getDevicePerformanceLevel,
+  getEstimatedDeviceMemory,
+  isIOS,
+  isIOSSafari,
+  isMobileDevice,
+  LOD_LEVELS,
+} from './constants'
 import type { DebugInfo, WebGLImageViewerProps } from './interface'
 import {
   createShader,
@@ -116,6 +123,7 @@ export class WebGLImageViewerEngine {
 
   // 按需LOD管理 - 只保留当前需要的一个LOD
   private currentlyCreatingLOD: number | null = null // 正在创建的LOD级别，避免重复创建
+  private scalingAlreadySet = false // 标记缩放是否已经设置，避免重复设置
 
   // Bound event handlers for proper cleanup
   private boundHandleMouseDown: (e: MouseEvent) => void
@@ -185,9 +193,14 @@ export class WebGLImageViewerEngine {
     this.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE)
 
     // 在移动设备上记录一些有用的调试信息并调整内存预算
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-    if (isMobile) {
+    if (isMobileDevice) {
       console.info('WebGL Image Viewer - Mobile device detected')
+      console.info('Device type:', {
+        isIOS,
+        isIOSSafari,
+        performance: getDevicePerformanceLevel(),
+        estimatedMemory: `${getEstimatedDeviceMemory()}MB`,
+      })
       console.info('Max texture size:', this.maxTextureSize)
       console.info('Device pixel ratio:', window.devicePixelRatio || 1)
       console.info(
@@ -382,56 +395,66 @@ export class WebGLImageViewerEngine {
     gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0)
   }
 
-  async loadImage(url: string) {
+  async loadImage(
+    url: string,
+    preknownWidth?: number,
+    preknownHeight?: number,
+  ) {
     this.originalImageSrc = url
     this.isLoadingTexture = true // 开始加载图片
     this.notifyLoadingStateChange(true, '图片加载中...')
+
+    // 如果提供了预知的尺寸，可以立即设置图片尺寸并准备渲染策略
+    if (preknownWidth && preknownHeight) {
+      this.imageWidth = preknownWidth
+      this.imageHeight = preknownHeight
+
+      // 立即设置正确的缩放和渲染策略
+      this.setupInitialScaling()
+      this.scalingAlreadySet = true // 标记缩放已设置
+      this.determineRenderingStrategy()
+
+      console.info(
+        `Using preknown dimensions: ${preknownWidth}×${preknownHeight}`,
+      )
+      console.info('Starting parallel image loading for texture creation...')
+    }
+
     const image = new Image()
     image.crossOrigin = 'anonymous'
 
     return new Promise<void>((resolve, reject) => {
       image.onload = async () => {
         try {
-          this.imageWidth = image.width
-          this.imageHeight = image.height
+          // 如果没有预知尺寸，现在获取
+          if (!preknownWidth || !preknownHeight) {
+            this.imageWidth = image.width
+            this.imageHeight = image.height
 
-          // 估算内存需求并决定渲染策略
-          const imagePixels = image.width * image.height
-          const baseMemoryMB = (imagePixels * 4) / (1024 * 1024) // RGBA 基础内存
-          const estimatedMaxMemoryMB = baseMemoryMB * 3 // 估算最多需要的内存（多个LOD级别）
-
-          console.info(`Image loaded: ${image.width}×${image.height}`)
-          console.info(`Base memory requirement: ${baseMemoryMB.toFixed(1)} MB`)
-          console.info(
-            `Estimated max memory: ${estimatedMaxMemoryMB.toFixed(1)} MB`,
-          )
-          console.info(
-            `Memory budget: ${(this.maxMemoryBudget / 1024 / 1024).toFixed(1)} MB`,
-          )
-
-          // 决定是否使用瓦片渲染
-          const maxDimension = Math.max(image.width, image.height)
-          const shouldUseTiling =
-            estimatedMaxMemoryMB > this.maxMemoryBudget / (1024 * 1024) ||
-            imagePixels > 50 * 1024 * 1024 || // 50M 像素
-            maxDimension > 8192 // 任一边超过 8K
-
-          if (shouldUseTiling) {
-            this.useTiledRendering = true
-            console.info(`🧩 Using tiled rendering for large image`)
-            console.info(`Tile size: ${this.tileSize}×${this.tileSize}`)
-            console.info(`Max tiles in memory: ${this.maxTilesInMemory}`)
+            // 设置缩放和渲染策略
+            if (!this.scalingAlreadySet) {
+              this.setupInitialScaling()
+              this.scalingAlreadySet = true
+            }
+            this.determineRenderingStrategy()
           } else {
-            console.info(`📄 Using standard LOD rendering`)
-          }
+            // 验证预知尺寸是否正确
+            if (
+              image.width !== preknownWidth ||
+              image.height !== preknownHeight
+            ) {
+              console.warn(
+                `Preknown dimensions mismatch: expected ${preknownWidth}×${preknownHeight}, actual ${image.width}×${image.height}`,
+              )
+              this.imageWidth = image.width
+              this.imageHeight = image.height
 
-          // 先设置正确的缩放值，再创建纹理
-          if (this.config.centerOnInit) {
-            this.fitImageToScreen()
-          } else {
-            // 即使不居中，也需要将相对缩放转换为绝对缩放
-            const fitToScreenScale = this.getFitToScreenScale()
-            this.scale = fitToScreenScale * this.config.initialScale
+              // 重新设置缩放和渲染策略
+              this.setupInitialScaling()
+              this.scalingAlreadySet = true
+              this.determineRenderingStrategy()
+            }
+            // 如果尺寸匹配，不需要重新设置缩放，只进行纹理创建
           }
 
           this.notifyLoadingStateChange(true, '创建纹理中...')
@@ -458,6 +481,47 @@ export class WebGLImageViewerEngine {
     })
   }
 
+  private setupInitialScaling() {
+    // 先设置正确的缩放值
+    if (this.config.centerOnInit) {
+      this.fitImageToScreen()
+    } else {
+      // 即使不居中，也需要将相对缩放转换为绝对缩放
+      const fitToScreenScale = this.getFitToScreenScale()
+      this.scale = fitToScreenScale * this.config.initialScale
+    }
+  }
+
+  private determineRenderingStrategy() {
+    // 估算内存需求并决定渲染策略
+    const imagePixels = this.imageWidth * this.imageHeight
+    const baseMemoryMB = (imagePixels * 4) / (1024 * 1024) // RGBA 基础内存
+    const estimatedMaxMemoryMB = baseMemoryMB * 3 // 估算最多需要的内存（多个LOD级别）
+
+    console.info(`Image loaded: ${this.imageWidth}×${this.imageHeight}`)
+    console.info(`Base memory requirement: ${baseMemoryMB.toFixed(1)} MB`)
+    console.info(`Estimated max memory: ${estimatedMaxMemoryMB.toFixed(1)} MB`)
+    console.info(
+      `Memory budget: ${(this.maxMemoryBudget / 1024 / 1024).toFixed(1)} MB`,
+    )
+
+    // 决定是否使用瓦片渲染
+    const maxDimension = Math.max(this.imageWidth, this.imageHeight)
+    const shouldUseTiling =
+      estimatedMaxMemoryMB > this.maxMemoryBudget / (1024 * 1024) ||
+      imagePixels > 50 * 1024 * 1024 || // 50M 像素
+      maxDimension > 8192 // 任一边超过 8K
+
+    if (shouldUseTiling) {
+      this.useTiledRendering = true
+      console.info(`🧩 Using tiled rendering for large image`)
+      console.info(`Tile size: ${this.tileSize}×${this.tileSize}`)
+      console.info(`Max tiles in memory: ${this.maxTilesInMemory}`)
+    } else {
+      console.info(`📄 Using standard LOD rendering`)
+    }
+  }
+
   private async createTexture(image: HTMLImageElement) {
     this.originalImage = image
     await this.createOriginalImageBitmap()
@@ -472,9 +536,48 @@ export class WebGLImageViewerEngine {
   private async createOriginalImageBitmap() {
     if (!this.originalImage) return
 
+    // 对于超大图片，检查是否需要跳过 ImageBitmap 创建
+    const imagePixels = this.originalImage.width * this.originalImage.height
+
+    // 激进的阈值：超过100M像素或移动端超过50M像素时跳过ImageBitmap创建
+    const skipThreshold = isMobileDevice ? 50 * 1024 * 1024 : 100 * 1024 * 1024
+
+    if (imagePixels > skipThreshold) {
+      console.info(
+        `🚀 Skipping ImageBitmap creation for ${(imagePixels / 1024 / 1024).toFixed(1)}M pixel image to avoid main thread blocking`,
+      )
+      console.info('Will use direct Image element for tile rendering')
+      this.originalImageBitmap = null
+      return
+    }
+
     try {
-      // 使用 createImageBitmap 避免阻塞主线程的 getImageData 操作
-      this.originalImageBitmap = await createImageBitmap(this.originalImage)
+      // 对于中等大小的图片，使用异步方式创建 ImageBitmap
+      console.info(
+        `Creating ImageBitmap for ${(imagePixels / 1024 / 1024).toFixed(1)}M pixel image`,
+      )
+
+      // 使用 requestIdleCallback 包装，确保不阻塞关键操作
+      this.originalImageBitmap = await new Promise<ImageBitmap | null>(
+        (resolve) => {
+          const createBitmap = async () => {
+            try {
+              const bitmap = await createImageBitmap(this.originalImage!)
+              resolve(bitmap)
+            } catch (error) {
+              console.error('Failed to create ImageBitmap:', error)
+              resolve(null)
+            }
+          }
+
+          // 使用 requestIdleCallback 或降级到 setTimeout
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => createBitmap(), { timeout: 2000 })
+          } else {
+            setTimeout(createBitmap, 16) // 下一帧
+          }
+        },
+      )
     } catch (error) {
       console.error('Failed to create ImageBitmap:', error)
       this.originalImageBitmap = null
@@ -672,10 +775,9 @@ export class WebGLImageViewerEngine {
 
     // 计算拖拽方向（简化版本，基于当前视口扩展）
     const viewport = this.calculateViewport()
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
     // 移动端使用更激进的预测加载
-    const predictiveBuffer = this.tileSize * (isMobile ? 1 : 1.5)
+    const predictiveBuffer = this.tileSize * (isMobileDevice ? 1 : 1.5)
 
     // 扩展视口范围用于预测加载
     const predictiveTileRange = {
@@ -766,7 +868,7 @@ export class WebGLImageViewerEngine {
             tile.priority < 1000, // 只加载预测瓦片（优先级 < 1000）
         )
         .sort(([, a], [, b]) => b.priority - a.priority)
-        .slice(0, isMobile ? 1 : 2) // 移动端更保守
+        .slice(0, isMobileDevice ? 1 : 2) // 移动端更保守
 
       for (const [tileKey, tile] of predictiveTilesToLoad) {
         this.loadTile(tileKey, tile)
@@ -805,16 +907,14 @@ export class WebGLImageViewerEngine {
     bottom: number
   }) {
     // 计算需要的瓦片范围，包括一些缓冲区
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-
     // 根据拖拽状态调整缓冲区大小
     let bufferMultiplier: number
     if (this.isDragging && this.isDragOptimized) {
       // 拖拽时增加缓冲区，特别是移动端
-      bufferMultiplier = isMobile ? 0.75 : 1 // 移动设备拖拽时75%缓冲区
+      bufferMultiplier = isMobileDevice ? 0.75 : 1 // 移动设备拖拽时75%缓冲区
     } else {
       // 静止时使用较小缓冲区
-      bufferMultiplier = isMobile ? 0.5 : 0.75 // 移动设备静止时50%缓冲区
+      bufferMultiplier = isMobileDevice ? 0.5 : 0.75 // 移动设备静止时50%缓冲区
     }
 
     const buffer = this.tileSize * bufferMultiplier
@@ -1004,7 +1104,6 @@ export class WebGLImageViewerEngine {
       .sort((a, b) => b.tile.priority - a.tile.priority)
 
     // 限制同时加载的瓦片数量，拖拽时增加并发数
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
     let maxConcurrentLoads: number
 
     // 检查是否有高优先级瓦片需要加载（通常是动画后的视口内瓦片）
@@ -1014,14 +1113,14 @@ export class WebGLImageViewerEngine {
 
     if (this.isDragging && this.isDragOptimized) {
       // 拖拽时增加并发加载数量
-      maxConcurrentLoads = isMobile ? 4 : 6
+      maxConcurrentLoads = isMobileDevice ? 4 : 6
     } else if (hasHighPriorityTiles) {
       // 有高优先级瓦片时（如双击后），临时增加并发数
-      maxConcurrentLoads = isMobile ? 5 : 8
+      maxConcurrentLoads = isMobileDevice ? 5 : 8
       console.info('High priority tiles detected, increasing concurrent loads')
     } else {
       // 静止时使用较保守的并发数
-      maxConcurrentLoads = isMobile ? 3 : 5
+      maxConcurrentLoads = isMobileDevice ? 3 : 5
     }
 
     const currentLoads = this.tileLoadPromises.size
@@ -1061,7 +1160,8 @@ export class WebGLImageViewerEngine {
   private async createTileTexture(
     tile: TileInfo,
   ): Promise<WebGLTexture | null> {
-    if (!this.originalImageBitmap) return null
+    // 检查是否有可用的图像源（ImageBitmap 或原始 Image）
+    if (!this.originalImageBitmap && !this.originalImage) return null
 
     try {
       // 检查内存压力，如果太高则拒绝创建
@@ -1088,8 +1188,7 @@ export class WebGLImageViewerEngine {
       )
 
       // 限制瓦片纹理最大尺寸（移动设备更严格）
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-      const maxTileSize = isMobile ? 512 : 1024
+      const maxTileSize = isMobileDevice ? 512 : 1024
 
       let finalWidth = outputWidth
       let finalHeight = outputHeight
@@ -1101,6 +1200,23 @@ export class WebGLImageViewerEngine {
         )
         finalWidth = Math.round(outputWidth * scale)
         finalHeight = Math.round(outputHeight * scale)
+      }
+
+      // 选择图像源：优先使用 ImageBitmap，降级到直接使用 Image 元素
+      const imageSource = this.originalImageBitmap || this.originalImage!
+
+      // 对于超大图片且直接使用Image元素的情况，使用渐进式异步处理
+      if (!this.originalImageBitmap && this.originalImage) {
+        return this.createTileTextureFromImageDirect(
+          tile,
+          sourceX,
+          sourceY,
+          sourceWidth,
+          sourceHeight,
+          finalWidth,
+          finalHeight,
+          lodConfig,
+        )
       }
 
       // 使用 Canvas 创建瓦片纹理（iOS Safari 对 OffscreenCanvas 支持不佳）
@@ -1115,7 +1231,7 @@ export class WebGLImageViewerEngine {
 
       // 绘制瓦片区域
       ctx.drawImage(
-        this.originalImageBitmap,
+        imageSource,
         sourceX,
         sourceY,
         sourceWidth,
@@ -1140,6 +1256,73 @@ export class WebGLImageViewerEngine {
       console.error('Failed to create tile texture:', error)
       // 如果创建瓦片失败，触发内存清理
       this.cleanupUnusedTiles()
+      return null
+    }
+  }
+
+  // 直接从Image元素创建瓦片纹理，使用异步方式避免阻塞主线程
+  private async createTileTextureFromImageDirect(
+    tile: TileInfo,
+    sourceX: number,
+    sourceY: number,
+    sourceWidth: number,
+    sourceHeight: number,
+    finalWidth: number,
+    finalHeight: number,
+    lodConfig: any,
+  ): Promise<WebGLTexture | null> {
+    try {
+      // 使用 requestIdleCallback 包装 canvas 操作，避免阻塞主线程
+      const canvas = await new Promise<HTMLCanvasElement>((resolve) => {
+        const processCanvas = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = finalWidth
+          canvas.height = finalHeight
+          const ctx = canvas.getContext('2d')!
+
+          // 设置渲染质量
+          ctx.imageSmoothingEnabled = true
+          ctx.imageSmoothingQuality = lodConfig.scale >= 1 ? 'high' : 'medium'
+
+          // 绘制瓦片区域
+          ctx.drawImage(
+            this.originalImage!,
+            sourceX,
+            sourceY,
+            sourceWidth,
+            sourceHeight,
+            0,
+            0,
+            finalWidth,
+            finalHeight,
+          )
+
+          resolve(canvas)
+        }
+
+        // 使用 requestIdleCallback 或降级到 setTimeout
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(processCanvas, { timeout: 1000 })
+        } else {
+          setTimeout(processCanvas, 0)
+        }
+      })
+
+      // 创建 WebGL 纹理
+      const tileKey = `${tile.x}-${tile.y}-${tile.level}`
+      const texture = this.createTextureRaw(canvas, tile.level)
+
+      // 添加瓦片专用的内存追踪
+      if (texture) {
+        this.updateTextureMemoryUsage(texture, canvas, tile.level, tileKey)
+        console.info(
+          `🧩 Created tile ${tileKey} directly from Image element (${finalWidth}×${finalHeight})`,
+        )
+      }
+
+      return texture
+    } catch (error) {
+      console.error('Failed to create tile texture from Image direct:', error)
       return null
     }
   }
@@ -1376,12 +1559,26 @@ export class WebGLImageViewerEngine {
 
   // 创建低分辨率背景纹理
   private async createBackgroundTexture() {
-    if (!this.originalImage || !this.originalImageBitmap) return
+    if (!this.originalImage) return
+
+    // 对于超大图片，检查是否跳过背景纹理创建
+    const imagePixels = this.originalImage.width * this.originalImage.height
+
+    // 如果图片像素数超过阈值，跳过背景纹理创建以避免主线程阻塞
+    const skipBackgroundThreshold = isMobileDevice
+      ? 100 * 1024 * 1024
+      : 200 * 1024 * 1024
+    if (imagePixels > skipBackgroundThreshold) {
+      console.info(
+        `🚀 Skipping background texture for ${(imagePixels / 1024 / 1024).toFixed(1)}M pixel image to avoid blocking`,
+      )
+      console.info('Will start directly with tile rendering')
+      return
+    }
 
     try {
       // 移动设备使用更保守的背景尺寸
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-      const maxBackgroundSize = isMobile ? 1024 : 2048
+      const maxBackgroundSize = isMobileDevice ? 1024 : 2048
       const aspectRatio = this.originalImage.width / this.originalImage.height
 
       let bgWidth: number, bgHeight: number
@@ -1428,9 +1625,64 @@ export class WebGLImageViewerEngine {
     width: number,
     height: number,
   ): Promise<WebGLTexture | null> {
-    if (!this.originalImageBitmap) return null
+    if (!this.originalImageBitmap && !this.originalImage) return null
 
     try {
+      // 选择图像源：优先使用 ImageBitmap，降级到直接使用 Image 元素
+      const imageSource = this.originalImageBitmap || this.originalImage!
+
+      // 对于超大图片且直接使用Image元素的情况，使用异步处理
+      if (!this.originalImageBitmap && this.originalImage) {
+        const canvas = await new Promise<HTMLCanvasElement>((resolve) => {
+          const processCanvas = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d')!
+
+            // 设置高质量缩放
+            ctx.imageSmoothingEnabled = true
+            ctx.imageSmoothingQuality = 'high'
+
+            // 绘制缩放后的图像
+            ctx.drawImage(
+              this.originalImage!,
+              0,
+              0,
+              this.originalImage!.width,
+              this.originalImage!.height,
+              0,
+              0,
+              width,
+              height,
+            )
+
+            resolve(canvas)
+          }
+
+          // 使用 requestIdleCallback 或降级到 setTimeout
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(processCanvas, { timeout: 1000 })
+          } else {
+            setTimeout(processCanvas, 16) // 下一帧
+          }
+        })
+
+        // 创建纹理
+        const texture = this.createTextureRaw(canvas, 0)
+
+        // 手动追踪背景纹理内存
+        if (texture) {
+          const memoryUsage = width * height * 4
+          this.memoryUsage.textures += memoryUsage
+          console.info(
+            `🖼️ Background texture created directly from Image: ${(memoryUsage / 1024 / 1024).toFixed(2)} MiB`,
+          )
+        }
+
+        return texture
+      }
+
       // 使用 Canvas 创建缩略图（iOS Safari 兼容性更好）
       const canvas = document.createElement('canvas')
       canvas.width = width
@@ -1443,7 +1695,7 @@ export class WebGLImageViewerEngine {
 
       // 绘制缩放后的图像
       ctx.drawImage(
-        this.originalImageBitmap,
+        imageSource,
         0,
         0,
         this.originalImage!.width,
@@ -1612,27 +1864,37 @@ export class WebGLImageViewerEngine {
             this.pendingLODRequests.set(id, { lodLevel, resolve, reject })
 
             // 为每次请求创建新的 ImageBitmap，避免转移后无法重用
-            createImageBitmap(this.originalImageBitmap!)
-              .then((imageBitmapCopy) => {
-                // 发送处理请求到 Worker，传递 ImageBitmap
-                this.lodWorker!.postMessage(
-                  {
-                    type: 'CREATE_LOD',
-                    payload: {
-                      id,
-                      imageBitmap: imageBitmapCopy,
-                      targetWidth: finalWidth,
-                      targetHeight: finalHeight,
-                      quality,
+            // 使用 requestIdleCallback 包装以避免阻塞主线程
+            const createBitmapAsync = () => {
+              createImageBitmap(this.originalImageBitmap!)
+                .then((imageBitmapCopy) => {
+                  // 发送处理请求到 Worker，传递 ImageBitmap
+                  this.lodWorker!.postMessage(
+                    {
+                      type: 'CREATE_LOD',
+                      payload: {
+                        id,
+                        imageBitmap: imageBitmapCopy,
+                        targetWidth: finalWidth,
+                        targetHeight: finalHeight,
+                        quality,
+                      },
                     },
-                  },
-                  [imageBitmapCopy],
-                )
-              })
-              .catch((error) => {
-                this.pendingLODRequests.delete(id)
-                reject(error)
-              })
+                    [imageBitmapCopy],
+                  )
+                })
+                .catch((error) => {
+                  this.pendingLODRequests.delete(id)
+                  reject(error)
+                })
+            }
+
+            // 使用 requestIdleCallback 或降级到 setTimeout
+            if ('requestIdleCallback' in window) {
+              requestIdleCallback(createBitmapAsync, { timeout: 1000 })
+            } else {
+              setTimeout(createBitmapAsync, 0)
+            }
           })
         } catch (error) {
           console.error('Failed to send LOD request to worker:', error)
@@ -1799,15 +2061,12 @@ export class WebGLImageViewerEngine {
     // 如果缩放比例 >= 1，说明显示的像素密度等于或超过原图
     const pixelDensity = this.scale
 
-    // 移动设备使用更保守的LOD策略
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-
     // 添加调试信息
     console.info(
       `Selecting LOD for tiles: scale=${this.scale.toFixed(3)}, pixelDensity=${pixelDensity.toFixed(3)}`,
     )
 
-    if (isMobile) {
+    if (isMobileDevice) {
       // 移动设备LOD策略：更注重性能，但确保足够的质量
       if (pixelDensity >= 8) {
         return 6 // 8x quality for very high zoom
@@ -2830,6 +3089,7 @@ export class WebGLImageViewerEngine {
 
     // 清理按需LOD创建状态
     this.currentlyCreatingLOD = null
+    this.scalingAlreadySet = false
 
     // 清理 ImageBitmap
     if (this.originalImageBitmap) {
