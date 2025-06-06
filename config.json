@@ -1,8 +1,8 @@
 {
-  "name": "Innei's Photo Gallery",
-  "title": "Innei's Photo Gallery",
+  "name": "鸭鸭的照片集",
+  "title": "鸭鸭的照片集",
   "description": "Capturing beautiful moments in life, documenting daily warmth and emotions through my lens.",
-  "url": "https://gallery.innei.in",
+  "url": "https://gallery.ouo.chat",
   "accentColor": "#007bff",
   "ogImage": {
     "width": 1200,
@@ -10,10 +10,10 @@
   },
   "author": {
     "name": "Photo Gallery",
-    "url": "https://innei.in/"
+    "url": "https://ouo.chat/"
   },
   "social": {
-    "twitter": "@__oQuery"
+    "twitter": "@mmyo456"
   },
   "extra": {
     "accessRepo": true
