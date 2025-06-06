@@ -2,7 +2,7 @@
   "name": "我的照片画廊",
   "title": "我的照片画廊",
   "description": "记录生活中的美好瞬间",
-  "url": "hhttps://iris-black.vercel.app",
+  "url": "https://gallery.example.com",
   "accentColor": "#007bff",
   "author": {
     "name": "Your Name",
@@ -11,5 +11,7 @@
   "social": {
     "twitter": "@yourusername"
   },
-  "extra": {} 
+  "extra": {
+    "accessrepo": ""
+  }
 }
