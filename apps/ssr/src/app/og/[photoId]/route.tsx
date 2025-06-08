@@ -1,7 +1,8 @@
+import { photoLoader } from '@photo-gallery/data'
 import { ImageResponse } from 'next/og'
 import type { NextRequest } from 'next/server'
 
-import { photoLoader } from '../../../../../web/src/data/photos'
+import geistFont from './Geist-Regular.ttf'
 
 export const runtime = 'edge'
 
@@ -9,11 +10,6 @@ export const GET = async (
   request: NextRequest,
   { params }: { params: Promise<{ photoId: string }> },
 ) => {
-  // 加载 Geist 字体
-  const geistFontPromise = fetch(
-    new URL('Geist-Regular.ttf', import.meta.url),
-  ).then((res) => res.arrayBuffer())
-
   const { photoId } = await params
 
   const photo = photoLoader.getPhoto(photoId)
@@ -22,8 +18,6 @@ export const GET = async (
   }
 
   try {
-    // 加载 Geist 字体
-    const geistFont = await geistFontPromise
     // 格式化拍摄时间
     const dateTaken = photo.exif?.Photo?.DateTimeOriginal || photo.lastModified
     const formattedDate = dateTaken
@@ -315,6 +309,13 @@ export const GET = async (
             weight: 400,
           },
         ],
+        headers: {
+          // Cache 1 years
+          'Cache-Control':
+            'public, max-age=31536000, stale-while-revalidate=31536000',
+          'Cloudflare-CDN-Cache-Control':
+            'public, max-age=31536000, stale-while-revalidate=31536000',
+        },
       },
     )
   } catch (error) {
