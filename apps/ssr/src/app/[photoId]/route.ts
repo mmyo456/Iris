@@ -64,12 +64,25 @@ const createAndInsertOpenGraphMeta = (
   request: NextRequest,
 ) => {
   // Open Graph meta tags
+
+  // X forward hjost
+  const xForwardedHeaders = {
+    'x-forwarded-host': request.headers.get('x-forwarded-host'),
+    'x-forwarded-proto': request.headers.get('x-forwarded-proto'),
+    'x-forwarded-for': request.headers.get('x-forwarded-for'),
+  }
+
+  let realOrigin = request.nextUrl.origin
+  if (xForwardedHeaders['x-forwarded-host']) {
+    realOrigin = `${xForwardedHeaders['x-forwarded-proto'] || 'https'}://${xForwardedHeaders['x-forwarded-host']}`
+  }
+
   const ogTags = {
     'og:type': 'website',
     'og:title': photo.id,
     'og:description': photo.description || '',
-    'og:image': `${request.nextUrl.origin}/og/${photo.id}`,
-    'og:url': `${request.nextUrl.origin}/${photo.id}`,
+    'og:image': `${realOrigin}/og/${photo.id}`,
+    'og:url': `${realOrigin}/${photo.id}`,
   }
 
   for (const [property, content] of Object.entries(ogTags)) {
@@ -84,7 +97,7 @@ const createAndInsertOpenGraphMeta = (
     'twitter:card': 'summary_large_image',
     'twitter:title': photo.id,
     'twitter:description': photo.description || '',
-    'twitter:image': `${request.nextUrl.origin}/og/${photo.id}`,
+    'twitter:image': `${realOrigin}/og/${photo.id}`,
   }
 
   for (const [name, content] of Object.entries(twitterTags)) {
