@@ -1,6 +1,7 @@
 import path from 'node:path'
 
 import type { _Object } from '@aws-sdk/client-s3'
+import { workdir } from '@photo-gallery/builder/path.js'
 import type { Exif } from 'exif-reader'
 import sharp from 'sharp'
 
@@ -142,7 +143,7 @@ export async function processPhoto(
       try {
         const fs = await import('node:fs/promises')
         const thumbnailPath = path.join(
-          process.cwd(),
+          workdir,
           'public/thumbnails',
           `${photoId}.webp`,
         )

@@ -1,7 +1,12 @@
+import cluster from 'node:cluster'
 import { existsSync, readFileSync } from 'node:fs'
 import os from 'node:os'
+import { inspect } from 'node:util'
 
-import type { StorageConfig } from './apps/web/src/core/storage/interfaces.js'
+import type { StorageConfig } from '@photo-gallery/builder'
+import consola from 'consola'
+import { merge } from 'es-toolkit'
+
 import { env } from './env.js'
 
 export interface BuilderConfig {
@@ -117,10 +122,13 @@ const readUserConfig = () => {
     readFileSync(new URL('builder.config.json', import.meta.url), 'utf-8'),
   ) as BuilderConfig
 
-  return {
-    ...defaultBuilderConfig,
-    ...userConfig,
-  }
+  return merge(defaultBuilderConfig, userConfig)
 }
 
 export const builderConfig: BuilderConfig = readUserConfig()
+
+if (cluster.isPrimary && process.env.DEBUG === '1') {
+  const logger = consola.withTag('CONFIG')
+  logger.info('Your builder config:')
+  logger.info(inspect(builderConfig, { depth: null, colors: true }))
+}

@@ -8,12 +8,18 @@ importers:
 
   .:
     dependencies:
+      '@photo-gallery/builder':
+        specifier: workspace:*
+        version: link:packages/builder
       '@t3-oss/env-core':
         specifier: 0.13.8
         version: 0.13.8(typescript@5.8.3)(zod@3.25.57)
       dotenv:
         specifier: 16.5.0
         version: 16.5.0
+      es-toolkit:
+        specifier: 1.39.3
+        version: 1.39.3
       zod:
         specifier: 3.25.57
         version: 3.25.57
@@ -21,6 +27,9 @@ importers:
       '@innei/prettier':
         specifier: 0.15.0
         version: 0.15.0
+      consola:
+        specifier: 3.4.2
+        version: 3.4.2
       eslint:
         specifier: 9.28.0
         version: 9.28.0(jiti@2.4.2)
@@ -100,12 +109,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@aws-sdk/client-s3':
-        specifier: 3.826.0
-        version: 3.826.0
-      '@aws-sdk/s3-request-presigner':
-        specifier: 3.826.0
-        version: 3.826.0
       '@essentials/request-timeout':
         specifier: 1.3.0
         version: 1.3.0
@@ -118,6 +121,9 @@ importers:
       '@photo-gallery/webgl-viewer':
         specifier: workspace:*
         version: link:../../packages/webgl-viewer
+      '@radix-ui/react-avatar':
+        specifier: 1.1.10
+        version: 1.1.10(@types/react-dom@19.1.6(@types/react@19.1.7))(@types/react@19.1.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       '@radix-ui/react-context-menu':
         specifier: 2.2.15
         version: 2.2.15(@types/react-dom@19.1.6(@types/react@19.1.7))(@types/react@19.1.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -173,14 +179,11 @@ importers:
         specifier: 2.0.2
         version: 2.0.2
       foxact:
-        specifier: 0.2.46
-        version: 0.2.46(react@19.1.0)
+        specifier: 0.2.49
+        version: 0.2.49(react@19.1.0)
       fuji-recipes:
         specifier: 1.0.2
         version: 1.0.2
-      heic-convert:
-        specifier: 2.1.0
-        version: 2.1.0
       heic-to:
         specifier: 1.1.13
         version: 1.1.13
@@ -232,9 +235,6 @@ importers:
       react-zoom-pan-pinch:
         specifier: 3.7.0
         version: 3.7.0(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      sharp:
-        specifier: 0.34.2
-        version: 0.34.2
       sonner:
         specifier: 2.0.5
         version: 2.0.5(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -329,6 +329,36 @@ importers:
       vite-plugin-html:
         specifier: 3.2.2
         version: 3.2.2(vite@6.3.5(@types/node@22.15.31)(jiti@2.4.2)(lightningcss@1.30.1)(terser@5.41.0)(tsx@4.19.4)(yaml@2.8.0))
+
+  packages/builder:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.826.0
+        version: 3.826.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: 3.826.0
+        version: 3.826.0
+      blurhash:
+        specifier: 2.0.5
+        version: 2.0.5
+      execa:
+        specifier: 9.6.0
+        version: 9.6.0
+      exif-reader:
+        specifier: 2.0.2
+        version: 2.0.2
+      fuji-recipes:
+        specifier: 1.0.2
+        version: 1.0.2
+      heic-convert:
+        specifier: 2.1.0
+        version: 2.1.0
+      heic-to:
+        specifier: 1.1.13
+        version: 1.1.13
+      sharp:
+        specifier: 0.34.2
+        version: 0.34.2
 
   packages/data:
     dependencies:
@@ -1573,6 +1603,19 @@ packages:
       '@types/react-dom':
         optional: true
 
+  '@radix-ui/react-avatar@1.1.10':
+    resolution: {integrity: sha512-V8piFfWapM5OmNCXTzVQY+E1rDa53zY+MQ4Y7356v4fFz6vqCyUtIz2rUD44ZEdwg78/jKmMJHj07+C/Z/rcog==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
   '@radix-ui/react-collection@1.1.7':
     resolution: {integrity: sha512-Fh9rGN0MoI4ZFUNyfFVNU4y9LUz93u9/0K+yLgA2bwRojxM8JU1DyvvMBabnZPBgMWREAJvU2jjVzq+LrFUglw==}
     peerDependencies:
@@ -1838,6 +1881,15 @@ packages:
 
   '@radix-ui/react-use-escape-keydown@1.1.1':
     resolution: {integrity: sha512-Il0+boE7w/XebUHyBjroE+DbByORGR9KKmITzbR7MyQ4akpORYP/ZmbhAr0DG7RmmBqoOnZdy2QlvajJ2QA59g==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
+  '@radix-ui/react-use-is-hydrated@0.1.0':
+    resolution: {integrity: sha512-U+UORVEq+cTnRIaostJv9AGdV3G6Y+zbVd+12e18jQ5A3c0xL03IhnHuiU4UV69wolOQp5GfR58NW/EgdQhwOA==}
     peerDependencies:
       '@types/react': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
@@ -4284,8 +4336,8 @@ packages:
     resolution: {integrity: sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw==}
     engines: {node: '>=14'}
 
-  foxact@0.2.46:
-    resolution: {integrity: sha512-HgPDumCL8/kkLQ+zd9B9Z8uOnjkLzLLimO3u/W5ApRP7aC6PwNM651x1ueukoJLXooH82COF8y1iEJ79He2ftA==}
+  foxact@0.2.49:
+    resolution: {integrity: sha512-9Pbu4IbkaNqtS/H4887/QWegclMpBn54mzbPp3t1mg0iJuB83jpQGBY2fshal50NmchlAFIT/GSWBFsa0YI31Q==}
     peerDependencies:
       react: '*'
     peerDependenciesMeta:
@@ -8088,6 +8140,19 @@ snapshots:
       '@types/react': 19.1.7
       '@types/react-dom': 19.1.6(@types/react@19.1.7)
 
+  '@radix-ui/react-avatar@1.1.10(@types/react-dom@19.1.6(@types/react@19.1.7))(@types/react@19.1.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
+    dependencies:
+      '@radix-ui/react-context': 1.1.2(@types/react@19.1.7)(react@19.1.0)
+      '@radix-ui/react-primitive': 2.1.3(@types/react-dom@19.1.6(@types/react@19.1.7))(@types/react@19.1.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      '@radix-ui/react-use-callback-ref': 1.1.1(@types/react@19.1.7)(react@19.1.0)
+      '@radix-ui/react-use-is-hydrated': 0.1.0(@types/react@19.1.7)(react@19.1.0)
+      '@radix-ui/react-use-layout-effect': 1.1.1(@types/react@19.1.7)(react@19.1.0)
+      react: 19.1.0
+      react-dom: 19.1.0(react@19.1.0)
+    optionalDependencies:
+      '@types/react': 19.1.7
+      '@types/react-dom': 19.1.6(@types/react@19.1.7)
+
   '@radix-ui/react-collection@1.1.7(@types/react-dom@19.1.6(@types/react@19.1.7))(@types/react@19.1.7)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       '@radix-ui/react-compose-refs': 1.1.2(@types/react@19.1.7)(react@19.1.0)
@@ -8366,6 +8431,13 @@ snapshots:
     dependencies:
       '@radix-ui/react-use-callback-ref': 1.1.1(@types/react@19.1.7)(react@19.1.0)
       react: 19.1.0
+    optionalDependencies:
+      '@types/react': 19.1.7
+
+  '@radix-ui/react-use-is-hydrated@0.1.0(@types/react@19.1.7)(react@19.1.0)':
+    dependencies:
+      react: 19.1.0
+      use-sync-external-store: 1.5.0(react@19.1.0)
     optionalDependencies:
       '@types/react': 19.1.7
 
@@ -10990,7 +11062,7 @@ snapshots:
       cross-spawn: 7.0.6
       signal-exit: 4.1.0
 
-  foxact@0.2.46(react@19.1.0):
+  foxact@0.2.49(react@19.1.0):
     dependencies:
       client-only: 0.0.1
       server-only: 0.0.1
