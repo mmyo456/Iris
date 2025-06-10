@@ -3,26 +3,26 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.11.1",
+  "packageManager": "pnpm@10.12.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/Iris-Photo-Gallery/Iris"
   },
   "scripts": {
     "build": "pnpm --filter @photo-gallery/web build",
+    "build:manifest": "pnpm --filter @photo-gallery/web build:manifest",
     "build:update-remote-repo": "sh scripts/build-update-remote-repo.sh",
     "dev": "pnpm --filter @photo-gallery/web dev",
     "extract:font": "tsx scripts/extract-font-glyphs.ts",
     "format": "prettier --write \"src/**/*.ts\" ",
     "lint": "eslint --fix",
     "preinstall": "sh scripts/preinstall.sh",
-    "prepare": "simple-git-hooks",
-    "test:svg-font": "tsx scripts/test-svg-text.ts"
+    "prepare": "simple-git-hooks"
   },
   "dependencies": {
-    "@t3-oss/env-core": "0.13.6",
+    "@t3-oss/env-core": "0.13.8",
     "dotenv": "16.5.0",
-    "zod": "3.25.51"
+    "zod": "3.25.57"
   },
   "devDependencies": {
     "@innei/prettier": "0.15.0",
@@ -37,7 +37,7 @@
     "tsx": "4.19.4",
     "typescript": "5.8.3",
     "vite": "6.3.5",
-    "vite-bundle-analyzer": "0.22.0",
+    "vite-bundle-analyzer": "0.22.2",
     "vite-plugin-babel": "1.3.1",
     "vite-plugin-checker": "0.9.3",
     "vite-tsconfig-paths": "5.1.4"
