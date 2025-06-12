@@ -17,7 +17,12 @@
     "twitter": "@mmyo456"
     "github": "mmyo456"
   },
-  "extra": {
-    "accessRepo": true
+  "feed": {
+    "folo": {
+      "challenge": {
+        "feedId": "155982289762921472",
+        "userId": "41312624216137728"
+      }
+    }
   }
 }
