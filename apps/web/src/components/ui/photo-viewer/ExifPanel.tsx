@@ -18,6 +18,7 @@ import {
 } from '~/icons'
 import { getImageFormat } from '~/lib/image-utils'
 import { jotaiStore } from '~/lib/jotai'
+import { Spring } from '~/lib/spring'
 import type { PhotoManifest } from '~/types/photo'
 
 import { MotionButtonBase } from '../button'
@@ -42,9 +43,9 @@ export const ExifPanel: FC<{
     <m.div
       className={`${
         isMobile
-          ? 'exif-panel-mobile fixed right-0 bottom-0 left-0 max-h-[60vh] w-full rounded-t-2xl'
+          ? 'exif-panel-mobile fixed right-0 bottom-0 left-0 max-h-[60vh] w-full rounded-t-2xl backdrop-blur-[70px]'
           : 'w-80 shrink-0'
-      } bg-material-medium z-10 flex flex-col text-white backdrop-blur-3xl`}
+      } bg-material-medium z-10 flex flex-col text-white`}
       initial={{
         opacity: 0,
         ...(isMobile ? { y: 100 } : { x: 100 }),
@@ -57,7 +58,7 @@ export const ExifPanel: FC<{
         opacity: 0,
         ...(isMobile ? { y: 100 } : { x: 100 }),
       }}
-      transition={{ duration: 0.3 }}
+      transition={Spring.presets.smooth}
     >
       <div className="mb-4 flex shrink-0 items-center justify-between p-4 pb-0">
         <h3 className={`${isMobile ? 'text-base' : 'text-lg'} font-semibold`}>
@@ -203,9 +204,9 @@ export const ExifPanel: FC<{
                 <h4 className="my-2 text-sm font-medium text-white/80">
                   {t('exif.capture.parameters')}
                 </h4>
-                <div className={`grid grid-cols-2 gap-3`}>
+                <div className={`grid grid-cols-2 gap-2`}>
                   {formattedExifData.focalLength35mm && (
-                    <div className="flex items-center gap-2 rounded-md bg-white/10 px-2 py-1">
+                    <div className="flex h-6 items-center gap-2 rounded-md bg-white/10 px-2">
                       <StreamlineImageAccessoriesLensesPhotosCameraShutterPicturePhotographyPicturesPhotoLens className="text-sm text-white/70" />
                       <span className="text-xs">
                         {formattedExifData.focalLength35mm}mm
@@ -214,7 +215,7 @@ export const ExifPanel: FC<{
                   )}
 
                   {formattedExifData.aperture && (
-                    <div className="flex items-center gap-2 rounded-md bg-white/10 px-2 py-1">
+                    <div className="flex h-6 items-center gap-2 rounded-md bg-white/10 px-2">
                       <TablerAperture className="text-sm text-white/70" />
                       <span className="text-xs">
                         {formattedExifData.aperture}
@@ -223,7 +224,7 @@ export const ExifPanel: FC<{
                   )}
 
                   {formattedExifData.shutterSpeed && (
-                    <div className="flex items-center gap-2 rounded-md bg-white/10 px-2 py-1">
+                    <div className="flex h-6 items-center gap-2 rounded-md bg-white/10 px-2">
                       <MaterialSymbolsShutterSpeed className="text-sm text-white/70" />
                       <span className="text-xs">
                         {formattedExifData.shutterSpeed}
@@ -232,7 +233,7 @@ export const ExifPanel: FC<{
                   )}
 
                   {formattedExifData.iso && (
-                    <div className="flex items-center gap-2 rounded-md bg-white/10 px-2 py-1">
+                    <div className="flex h-6 items-center gap-2 rounded-md bg-white/10 px-2">
                       <CarbonIsoOutline className="text-sm text-white/70" />
                       <span className="text-xs">
                         ISO {formattedExifData.iso}
@@ -241,7 +242,7 @@ export const ExifPanel: FC<{
                   )}
 
                   {formattedExifData.exposureBias && (
-                    <div className="flex items-center gap-2 rounded-md bg-white/10 px-2 py-1">
+                    <div className="flex h-6 items-center gap-2 rounded-md bg-white/10 px-2">
                       <MaterialSymbolsExposure className="text-sm text-white/70" />
                       <span className="text-xs">
                         {formattedExifData.exposureBias}
